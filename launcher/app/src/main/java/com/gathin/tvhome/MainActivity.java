@@ -119,6 +119,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private GlassView glass;
     private View ambient;
     private TextView heroName;
+    private TextView heroTagline;
+    private TextView heroDescription;
+    private TextView prayerTimeView;
     /** The top shelf: heroName, plus the cinematic shelf's "Last opened" line and dock position dots. */
     private View hero;
     private TextView heroMeta;
@@ -345,6 +348,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         hero.forceHasOverlappingRendering(false);
         heroMeta = findViewById(R.id.heroMeta);
         heroDots = findViewById(R.id.heroDots);
+        heroTagline = findViewById(R.id.heroTagline);
+        heroDescription = findViewById(R.id.heroDescription);
+        prayerTimeView = findViewById(R.id.prayerTime);
         heroArt = findViewById(R.id.heroArt);
         cinematic = cfg.cinematicHome;
         if (cinematic) setUpCinematicShelf();
@@ -650,6 +656,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         restartIdleClock();
         promptsPaused = false;
+        PrayerTimes.update(this, displayText -> {
+            if (prayerTimeView != null) {
+                prayerTimeView.setText(displayText);
+                prayerTimeView.setVisibility(View.VISIBLE);
+            }
+        });
         if (grid.getAdapter() == null) grid.setAdapter(adapter);   // dropped by onTrimMemory
         if (rebuildOnResume) {
             tilesReady = false;
@@ -1334,6 +1346,23 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (!cinematic) return;
         updateHeroMeta(position);
         updateHeroDots(position);
+        updateHeroShowcase(position);
+    }
+
+    private void updateHeroShowcase(int position) {
+        if (heroTagline == null || heroDescription == null) return;
+        String pkg = adapter.packageAt(position);
+        ShowcaseContent.Item item = ShowcaseContent.get(pkg);
+        if (item != null) {
+            heroTagline.setText(item.tagline);
+            heroTagline.setTextColor(item.accentColor);
+            heroTagline.setVisibility(View.VISIBLE);
+            heroDescription.setText(item.description);
+            heroDescription.setVisibility(View.VISIBLE);
+        } else {
+            heroTagline.setVisibility(View.GONE);
+            heroDescription.setVisibility(View.GONE);
+        }
     }
 
     // ---- cinematic shelf -------------------------------------------------------------------------
@@ -1547,6 +1576,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private void hideHero() {
         if (!heroShown) return;
+        if (heroTagline != null) heroTagline.setVisibility(View.GONE);
+        if (heroDescription != null) heroDescription.setVisibility(View.GONE);
         stopAmbientAnimation();
         hero.animate().cancel();
         ambient.animate().cancel();

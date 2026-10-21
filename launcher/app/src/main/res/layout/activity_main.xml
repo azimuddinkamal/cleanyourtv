@@ -123,6 +123,33 @@
             android:includeFontPadding="false"
             android:singleLine="true" />
 
+        <TextView
+            android:id="@+id/heroTagline"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:layout_marginTop="6dp"
+            android:singleLine="true"
+            android:textColor="#FF818CF8"
+            android:textSize="18sp"
+            android:fontFamily="@font/outfit_medium"
+            android:letterSpacing="0.02"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/heroDescription"
+            android:layout_width="650dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:layout_marginTop="8dp"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:lineSpacingExtra="4dp"
+            android:textColor="#D9FFFFFF"
+            android:textSize="16sp"
+            android:fontFamily="@font/outfit_light"
+            android:visibility="gone" />
+
         <!-- Cinematic shelf only: when the app was last opened, and the dock position dots. -->
         <TextView
             android:id="@+id/heroMeta"
@@ -270,6 +297,20 @@
                             android:fontFamily="@font/outfit_regular"
                             android:letterSpacing="0.14"
                             android:textAllCaps="true" />
+
+                        <TextView
+                            android:id="@+id/prayerTime"
+                            android:gravity="left"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:singleLine="true"
+                            android:ellipsize="end"
+                            android:textColor="#FFA5B4FC"
+                            android:textSize="13sp"
+                            android:fontFamily="@font/outfit_medium"
+                            android:letterSpacing="0.04"
+                            android:visibility="gone" />
                     </LinearLayout>
                 </LinearLayout>
 
