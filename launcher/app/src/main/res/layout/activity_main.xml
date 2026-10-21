@@ -338,7 +338,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:textColor="#FF34D399"
-                        android:textSize="10.5sp"
+                        android:textSize="11sp"
                         android:fontFamily="@font/outfit_medium"
                         android:textStyle="bold"
                         android:letterSpacing="0.04" />
@@ -367,7 +367,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:textColor="#8CFFFFFF"
-                            android:textSize="10.5sp"
+                            android:textSize="11sp"
                             android:fontFamily="@font/outfit_regular" />
                     </LinearLayout>
 
@@ -395,7 +395,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:textColor="#8CFFFFFF"
-                            android:textSize="10.5sp"
+                            android:textSize="11sp"
                             android:fontFamily="@font/outfit_regular" />
                     </LinearLayout>
 
@@ -423,7 +423,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:textColor="#8CFFFFFF"
-                            android:textSize="10.5sp"
+                            android:textSize="11sp"
                             android:fontFamily="@font/outfit_regular" />
                     </LinearLayout>
 
@@ -451,7 +451,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:textColor="#8CFFFFFF"
-                            android:textSize="10.5sp"
+                            android:textSize="11sp"
                             android:fontFamily="@font/outfit_regular" />
                     </LinearLayout>
 
@@ -479,7 +479,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:textColor="#8CFFFFFF"
-                            android:textSize="10.5sp"
+                            android:textSize="11sp"
                             android:fontFamily="@font/outfit_regular" />
                     </LinearLayout>
 
@@ -507,7 +507,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:textColor="#8CFFFFFF"
-                            android:textSize="10.5sp"
+                            android:textSize="11sp"
                             android:fontFamily="@font/outfit_regular" />
                     </LinearLayout>
                 </LinearLayout>

@@ -125,7 +125,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private TextView prayerLocation;
     private TextView prayerNextSummary;
     private View[] prayerSlots;
-    private TextView[] prayerLabels;
     private TextView[] prayerTimes;
     /** The top shelf: heroName, plus the cinematic shelf's "Last opened" line and dock position dots. */
     private View hero;
@@ -366,14 +365,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             findViewById(R.id.slotAsar),
             findViewById(R.id.slotMaghrib),
             findViewById(R.id.slotIsyak)
-        };
-        prayerLabels = new TextView[] {
-            findViewById(R.id.labelSubuh),
-            findViewById(R.id.labelSyuruk),
-            findViewById(R.id.labelZohor),
-            findViewById(R.id.labelAsar),
-            findViewById(R.id.labelMaghrib),
-            findViewById(R.id.labelIsyak)
         };
         prayerTimes = new TextView[] {
             findViewById(R.id.timeSubuh),
@@ -701,9 +692,6 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 boolean isActive = (i == data.nextIndex);
                 if (prayerSlots != null && prayerSlots[i] != null) {
                     prayerSlots[i].setBackgroundResource(isActive ? R.drawable.prayer_slot_active_bg : 0);
-                }
-                if (prayerLabels != null && prayerLabels[i] != null) {
-                    prayerLabels[i].setTextColor(isActive ? 0xFF34D399 : 0x8CFFFFFF);
                 }
                 if (prayerTimes != null && prayerTimes[i] != null) {
                     prayerTimes[i].setTextColor(isActive ? 0xFF34D399 : 0x8CFFFFFF);
