@@ -138,6 +138,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean ambientGlow;
     private ImageView heroArt;
     private static final float HERO_ART_ALPHA = 0.5f;
+    private float heroArtTargetAlpha = HERO_ART_ALPHA;
     /** Softened artwork per app (HeroArt, about 5 KB each), made the first time its dock tile is focused. */
     private final Map<String, Bitmap> heroArtCache = new HashMap<>();
     /** The app whose artwork heroArt shows, so focusing it again only fades it back in. */
@@ -705,7 +706,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     prayerLabels[i].setTextColor(isActive ? 0xFF34D399 : 0x8CFFFFFF);
                 }
                 if (prayerTimes != null && prayerTimes[i] != null) {
-                    prayerTimes[i].setTextColor(isActive ? 0xFFFFFFFF : 0xE6FFFFFF);
+                    prayerTimes[i].setTextColor(isActive ? 0xFF34D399 : 0x8CFFFFFF);
                 }
             }
             prayerWidget.setVisibility(View.VISIBLE);
@@ -1328,7 +1329,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void showHero(int position, float dockTopInRoot) {
         String label = adapter.labelAt(position);
         int color = adapter.ambientColorAt(position);
-        float shelfHeight = cinematic ? 190 * density : (hero.getHeight() > 0 ? hero.getHeight() : 60 * density);
+        float shelfHeight = cinematic ? 175 * density : (hero.getHeight() > 0 ? hero.getHeight() : 60 * density);
         float y = dockTopInRoot - 14 * density - 26 * density - shelfHeight;
         boolean changed = !label.contentEquals(heroName.getText());
         if (cinematic) showHeroArt(position);
@@ -1389,12 +1390,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
     }
 
-    /** The shelf's text for this dock app: its name and, on the cinematic shelf, "Last opened" and the dots. */
+    /** The shelf's text for this dock app: its name and, on the cinematic shelf, showcase tagline and description. */
     private void fillHero(int position, String label) {
         heroName.setText(label);
         if (!cinematic) return;
-        updateHeroMeta(position);
-        updateHeroDots(position);
         updateHeroShowcase(position);
     }
 
@@ -1416,12 +1415,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     // ---- cinematic shelf -------------------------------------------------------------------------
 
-    /** The parts that never change: a larger name, the meta line and the dots, the artwork and the scrim. */
+    /** The parts that never change: a standardized name size, the artwork and the scrim. */
     private void setUpCinematicShelf() {
-        heroName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 68f);
+        heroName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 56f);
         heroName.setLetterSpacing(-0.025f);
-        heroMeta.setVisibility(View.INVISIBLE);   // keeps its height, so the name does not jump when it fills in
-        heroDots.setVisibility(View.VISIBLE);
+        heroMeta.setVisibility(View.GONE);
+        heroDots.setVisibility(View.GONE);
         heroArt.setVisibility(View.VISIBLE);
         // One stretched bitmap: apply its alpha while drawing instead of through an offscreen buffer.
         heroArt.forceHasOverlappingRendering(false);
@@ -1452,36 +1451,61 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         return scrim;
     }
 
+    private int getCustomBackdropRes(String pkg) {
+        if (pkg == null) return 0;
+        String p = pkg.toLowerCase(Locale.US);
+        if (p.contains("youtube")) return R.drawable.backdrop_youtube;
+        if (p.contains("durioo")) return R.drawable.backdrop_durioo;
+        if (p.contains("netflix")) return R.drawable.backdrop_netflix;
+        if (p.contains("hotstar") || p.contains("disney")) return R.drawable.backdrop_disney;
+        if (p.contains("apple") || p.contains("atve")) return R.drawable.backdrop_appletv;
+        return 0;
+    }
+
     /** Swaps the backdrop to this app's artwork: fade out, swap, fade in, the way the shelf's name changes. */
     private void showHeroArt(int position) {
         String key = adapter.keyAt(position);
         if (key == null) return;
         heroArt.animate().cancel();
+        String pkg = adapter.packageAt(position);
+        final int customRes = getCustomBackdropRes(pkg);
+        heroArtTargetAlpha = (customRes != 0) ? 0.88f : HERO_ART_ALPHA;
+
         if (key.equals(heroArtKey)) {
             fadeHeroArt(420);
             return;
         }
-        Bitmap art = heroArtCache.get(key);
-        if (art == null) {
-            art = HeroArt.from(adapter.artworkAt(position));
-            if (art != null) heroArtCache.put(key, art);
-        }
         heroArtKey = key;
-        final Bitmap next = art;
+
+        final Runnable applyArtwork = () -> {
+            if (customRes != 0) {
+                heroArt.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                heroArt.setImageResource(customRes);
+            } else {
+                heroArt.setScaleType(ImageView.ScaleType.FIT_XY);
+                Bitmap art = heroArtCache.get(key);
+                if (art == null) {
+                    art = HeroArt.from(adapter.artworkAt(position));
+                    if (art != null) heroArtCache.put(key, art);
+                }
+                heroArt.setImageBitmap(art);
+            }
+        };
+
         if (!animations || reducedMotion || heroArt.getAlpha() == 0f) {
-            heroArt.setImageBitmap(next);
+            applyArtwork.run();
             fadeHeroArt(600);
             return;
         }
         heroArt.animate().alpha(0f).setDuration(140).withEndAction(() -> {
-            heroArt.setImageBitmap(next);
-            heroArt.animate().alpha(HERO_ART_ALPHA).setDuration(420).start();
+            applyArtwork.run();
+            heroArt.animate().alpha(heroArtTargetAlpha).setDuration(420).start();
         }).start();
     }
 
     private void fadeHeroArt(int ms) {
-        if (!animations) heroArt.setAlpha(HERO_ART_ALPHA);
-        else heroArt.animate().alpha(HERO_ART_ALPHA).setDuration(reducedMotion ? Math.min(ms, 160) : ms).start();
+        if (!animations) heroArt.setAlpha(heroArtTargetAlpha);
+        else heroArt.animate().alpha(heroArtTargetAlpha).setDuration(reducedMotion ? Math.min(ms, 160) : ms).start();
     }
 
     /** "Last opened yesterday, 9:40 PM", the time in white; nothing (but the same height) when it was never seen. */

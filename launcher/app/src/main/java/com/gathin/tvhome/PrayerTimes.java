@@ -22,16 +22,19 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * JAKIM e-Solat integration with automatic location detection (IP-based geolocation)
- * and intelligent daily caching. Generates full prayer widget data for all daily prayers.
+ * JAKIM e-Solat integration with dedicated support for Batu Caves / Gombak (zone SGR01)
+ * and intelligent daily caching. Generates minimalist prayer strip data for all daily prayers.
  */
 public final class PrayerTimes {
     private static final String TAG = "TvHomePrayerTimes";
     private static final String PREFS_NAME = "tvhome_prayer_prefs";
     private static final String KEY_CACHE_JSON = "prayer_cache_json";
     private static final String KEY_CACHE_MONTH = "prayer_cache_month";
-    private static final String KEY_CACHE_ZONE = "prayer_cache_zone";
-    private static final String KEY_CACHE_CITY = "prayer_cache_city";
+
+    // Batu Caves, Gombak coordinates (Zone SGR01)
+    private static final double DEFAULT_LAT = 3.2379;
+    private static final double DEFAULT_LON = 101.6840;
+    private static final String DEFAULT_CITY = "Batu Caves";
 
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
     private static final Handler MAIN_HANDLER = new Handler(Looper.getMainLooper());
@@ -104,40 +107,24 @@ public final class PrayerTimes {
 
     private static void refreshFromNetwork(Context appCtx, Listener listener) {
         try {
-            // Step 1: Detect location via IP Geolocation
-            double lat = 3.0833;
-            double lon = 101.5833;
-            String city = "Selangor";
+            double lat = DEFAULT_LAT;
+            double lon = DEFAULT_LON;
+            String city = DEFAULT_CITY;
 
-            try {
-                String geoJson = fetchUrl("https://ipwho.is/");
-                JSONObject geo = new JSONObject(geoJson);
-                if (geo.optBoolean("success", false)) {
-                    lat = geo.optDouble("latitude", lat);
-                    lon = geo.optDouble("longitude", lon);
-                    city = geo.optString("city", geo.optString("region", city));
-                }
-            } catch (Exception e) {
-                Log.w(TAG, "IP Geolocation fallback: " + e.getMessage());
-            }
-
-            // Step 2: Query Waktu Solat JAKIM GPS API
+            // Query Waktu Solat JAKIM GPS API for Batu Caves, Gombak
             String apiUrl = String.format(Locale.US, "https://api.waktusolat.app/v2/solat/gps/%.4f/%.4f", lat, lon);
             String prayerJson = fetchUrl(apiUrl);
             JSONObject data = new JSONObject(prayerJson);
-            String zone = data.optString("zone", "SGR01");
             int monthNumber = data.optInt("month_number", Calendar.getInstance(TimeZone.getTimeZone("GMT+8")).get(Calendar.MONTH) + 1);
 
-            // Step 3: Save to SharedPreferences
+            // Save to SharedPreferences
             SharedPreferences prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
             prefs.edit()
                     .putString(KEY_CACHE_JSON, prayerJson)
                     .putInt(KEY_CACHE_MONTH, monthNumber)
-                    .putString(KEY_CACHE_ZONE, zone)
-                    .putString(KEY_CACHE_CITY, city)
                     .apply();
 
-            WidgetData widgetData = parseWidgetData(data, zone, city);
+            WidgetData widgetData = parseWidgetData(data, city);
             if (widgetData != null && listener != null) {
                 MAIN_HANDLER.post(() -> listener.onPrayerTimesUpdated(widgetData));
             }
@@ -149,18 +136,16 @@ public final class PrayerTimes {
     private static WidgetData getCachedData(Context appCtx) {
         SharedPreferences prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         String cachedJson = prefs.getString(KEY_CACHE_JSON, null);
-        String zone = prefs.getString(KEY_CACHE_ZONE, "SGR01");
-        String city = prefs.getString(KEY_CACHE_CITY, "Selangor");
         if (cachedJson == null) return null;
         try {
             JSONObject data = new JSONObject(cachedJson);
-            return parseWidgetData(data, zone, city);
+            return parseWidgetData(data, DEFAULT_CITY);
         } catch (Exception e) {
             return null;
         }
     }
 
-    private static WidgetData parseWidgetData(JSONObject data, String zone, String city) {
+    private static WidgetData parseWidgetData(JSONObject data, String city) {
         try {
             JSONArray prayers = data.optJSONArray("prayers");
             if (prayers == null || prayers.length() == 0) return null;
@@ -230,16 +215,16 @@ public final class PrayerTimes {
             SimpleDateFormat timeFmt = new SimpleDateFormat("h:mm a", Locale.US);
             timeFmt.setTimeZone(TimeZone.getTimeZone("GMT+8"));
 
-            String subuhStr = timeFmt.format(new Date(fajr * 1000L));
-            String syurukStr = timeFmt.format(new Date(syuruk * 1000L));
-            String zohorStr = timeFmt.format(new Date(dhuhr * 1000L));
-            String asarStr = timeFmt.format(new Date(asr * 1000L));
-            String maghribStr = timeFmt.format(new Date(maghrib * 1000L));
-            String isyakStr = timeFmt.format(new Date(isha * 1000L));
+            String subuhStr = "Subuh " + timeFmt.format(new Date(fajr * 1000L));
+            String syurukStr = "Syuruk " + timeFmt.format(new Date(syuruk * 1000L));
+            String zohorStr = "Zohor " + timeFmt.format(new Date(dhuhr * 1000L));
+            String asarStr = "Asar " + timeFmt.format(new Date(asr * 1000L));
+            String maghribStr = "Maghrib " + timeFmt.format(new Date(maghrib * 1000L));
+            String isyakStr = "Isyak " + timeFmt.format(new Date(isha * 1000L));
 
             String nextTimeStr = timeFmt.format(new Date(nextSec * 1000L));
-            String nextSummary = "NEXT: " + nextName.toUpperCase(Locale.US) + " " + nextTimeStr;
-            String locationStr = city.toUpperCase(Locale.US) + " · " + zone.toUpperCase(Locale.US);
+            String nextSummary = "● NEXT: " + nextName.toUpperCase(Locale.US) + " " + nextTimeStr;
+            String locationStr = city.toUpperCase(Locale.US);
 
             return new WidgetData(
                     locationStr,
