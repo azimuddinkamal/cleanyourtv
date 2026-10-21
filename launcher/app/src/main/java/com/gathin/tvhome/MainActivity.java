@@ -121,7 +121,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private TextView heroName;
     private TextView heroTagline;
     private TextView heroDescription;
-    private TextView prayerTimeView;
+    private View prayerWidget;
+    private TextView prayerLocation;
+    private TextView prayerNextSummary;
+    private View[] prayerSlots;
+    private TextView[] prayerLabels;
+    private TextView[] prayerTimes;
     /** The top shelf: heroName, plus the cinematic shelf's "Last opened" line and dock position dots. */
     private View hero;
     private TextView heroMeta;
@@ -350,7 +355,33 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         heroDots = findViewById(R.id.heroDots);
         heroTagline = findViewById(R.id.heroTagline);
         heroDescription = findViewById(R.id.heroDescription);
-        prayerTimeView = findViewById(R.id.prayerTime);
+        prayerWidget = findViewById(R.id.prayerWidget);
+        prayerLocation = findViewById(R.id.prayerLocation);
+        prayerNextSummary = findViewById(R.id.prayerNextSummary);
+        prayerSlots = new View[] {
+            findViewById(R.id.slotSubuh),
+            findViewById(R.id.slotSyuruk),
+            findViewById(R.id.slotZohor),
+            findViewById(R.id.slotAsar),
+            findViewById(R.id.slotMaghrib),
+            findViewById(R.id.slotIsyak)
+        };
+        prayerLabels = new TextView[] {
+            findViewById(R.id.labelSubuh),
+            findViewById(R.id.labelSyuruk),
+            findViewById(R.id.labelZohor),
+            findViewById(R.id.labelAsar),
+            findViewById(R.id.labelMaghrib),
+            findViewById(R.id.labelIsyak)
+        };
+        prayerTimes = new TextView[] {
+            findViewById(R.id.timeSubuh),
+            findViewById(R.id.timeSyuruk),
+            findViewById(R.id.timeZohor),
+            findViewById(R.id.timeAsar),
+            findViewById(R.id.timeMaghrib),
+            findViewById(R.id.timeIsyak)
+        };
         heroArt = findViewById(R.id.heroArt);
         cinematic = cfg.cinematicHome;
         if (cinematic) setUpCinematicShelf();
@@ -358,6 +389,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // still follows the dock.
         if (!cfg.dockTitle) hero.setVisibility(View.GONE);
         greeting = findViewById(R.id.greeting);
+        if (greeting != null) greeting.setVisibility(View.GONE);
         clockBlock = findViewById(R.id.leftBlock);
         greetingColor = greeting.getCurrentTextColor();
         btnWifi = findViewById(R.id.btnWifi);
@@ -656,11 +688,27 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         restartIdleClock();
         promptsPaused = false;
-        PrayerTimes.update(this, displayText -> {
-            if (prayerTimeView != null) {
-                prayerTimeView.setText(displayText);
-                prayerTimeView.setVisibility(View.VISIBLE);
+        PrayerTimes.update(this, data -> {
+            if (prayerWidget == null || data == null) return;
+            if (prayerLocation != null) prayerLocation.setText(data.location);
+            if (prayerNextSummary != null) prayerNextSummary.setText(data.nextPrayerSummary);
+            String[] times = new String[] {
+                data.subuh, data.syuruk, data.zohor, data.asar, data.maghrib, data.isyak
+            };
+            for (int i = 0; i < 6; i++) {
+                if (prayerTimes != null && prayerTimes[i] != null) prayerTimes[i].setText(times[i]);
+                boolean isActive = (i == data.nextIndex);
+                if (prayerSlots != null && prayerSlots[i] != null) {
+                    prayerSlots[i].setBackgroundResource(isActive ? R.drawable.prayer_slot_active_bg : 0);
+                }
+                if (prayerLabels != null && prayerLabels[i] != null) {
+                    prayerLabels[i].setTextColor(isActive ? 0xFF34D399 : 0x8CFFFFFF);
+                }
+                if (prayerTimes != null && prayerTimes[i] != null) {
+                    prayerTimes[i].setTextColor(isActive ? 0xFFFFFFFF : 0xE6FFFFFF);
+                }
             }
+            prayerWidget.setVisibility(View.VISIBLE);
         });
         if (grid.getAdapter() == null) grid.setAdapter(adapter);   // dropped by onTrimMemory
         if (rebuildOnResume) {
@@ -1280,7 +1328,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void showHero(int position, float dockTopInRoot) {
         String label = adapter.labelAt(position);
         int color = adapter.ambientColorAt(position);
-        float y = dockTopInRoot - 14 * density - 26 * density - hero.getHeight();
+        float shelfHeight = cinematic ? 190 * density : (hero.getHeight() > 0 ? hero.getHeight() : 60 * density);
+        float y = dockTopInRoot - 14 * density - 26 * density - shelfHeight;
         boolean changed = !label.contentEquals(heroName.getText());
         if (cinematic) showHeroArt(position);
 
@@ -1944,23 +1993,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     private void updateGreeting() {
-        int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
-        int res;
-        if (hour < 5) res = R.string.good_night;
-        else if (hour < 12) res = R.string.good_morning;
-        else if (hour < 17) res = R.string.good_afternoon;
-        else if (hour < 22) res = R.string.good_evening;
-        else res = R.string.good_night;
-        String festiveGreeting = festive ? festival.greetingText() : "";
-        if (!festiveGreeting.isEmpty()) {
-            greeting.setText(festiveGreeting);
-            greeting.setTextColor(liftTowardsWhite(festival.accentColor(), 0.25f));
-        } else {
-            greeting.setText(greetingName.isEmpty() ? getString(res)
-                    : getString(R.string.greeting_with_name, getString(res), greetingName));
-            greeting.setTextColor(greetingColor);
-        }
-        if (shamsi) shamsiDate.setText(Shamsi.today());
+        if (greeting != null) greeting.setVisibility(View.GONE);
+        if (shamsi && shamsiDate != null) shamsiDate.setText(Shamsi.today());
     }
 
     // ---- race-weekend panel (a theme's race_calendar) -----------------------------------------------

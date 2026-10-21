@@ -23,7 +23,7 @@ import java.util.concurrent.Executors;
 
 /**
  * JAKIM e-Solat integration with automatic location detection (IP-based geolocation)
- * and intelligent daily caching.
+ * and intelligent daily caching. Generates full prayer widget data for all daily prayers.
  */
 public final class PrayerTimes {
     private static final String TAG = "TvHomePrayerTimes";
@@ -36,8 +36,34 @@ public final class PrayerTimes {
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
     private static final Handler MAIN_HANDLER = new Handler(Looper.getMainLooper());
 
+    public static final class WidgetData {
+        public final String location;
+        public final String nextPrayerSummary;
+        public final int nextIndex; // 0=Subuh, 1=Syuruk, 2=Zohor, 3=Asar, 4=Maghrib, 5=Isyak
+        public final String subuh;
+        public final String syuruk;
+        public final String zohor;
+        public final String asar;
+        public final String maghrib;
+        public final String isyak;
+
+        public WidgetData(String location, String nextPrayerSummary, int nextIndex,
+                          String subuh, String syuruk, String zohor,
+                          String asar, String maghrib, String isyak) {
+            this.location = location;
+            this.nextPrayerSummary = nextPrayerSummary;
+            this.nextIndex = nextIndex;
+            this.subuh = subuh;
+            this.syuruk = syuruk;
+            this.zohor = zohor;
+            this.asar = asar;
+            this.maghrib = maghrib;
+            this.isyak = isyak;
+        }
+    }
+
     public interface Listener {
-        void onPrayerTimesUpdated(String displayText);
+        void onPrayerTimesUpdated(WidgetData data);
     }
 
     private PrayerTimes() {
@@ -48,9 +74,9 @@ public final class PrayerTimes {
         final Context appCtx = context.getApplicationContext();
 
         // 1. Immediately provide cached data if available
-        String cachedDisplay = getCachedDisplay(appCtx);
-        if (cachedDisplay != null && listener != null) {
-            listener.onPrayerTimesUpdated(cachedDisplay);
+        WidgetData cached = getCachedData(appCtx);
+        if (cached != null && listener != null) {
+            listener.onPrayerTimesUpdated(cached);
         }
 
         // 2. Refresh in background if needed (once a day or if cache is stale)
@@ -65,7 +91,7 @@ public final class PrayerTimes {
                 if (cachedJson == null || cachedMonth != currentMonth) {
                     refreshFromNetwork(appCtx, listener);
                 } else {
-                    String updated = getCachedDisplay(appCtx);
+                    WidgetData updated = getCachedData(appCtx);
                     if (updated != null && listener != null) {
                         MAIN_HANDLER.post(() -> listener.onPrayerTimesUpdated(updated));
                     }
@@ -111,16 +137,16 @@ public final class PrayerTimes {
                     .putString(KEY_CACHE_CITY, city)
                     .apply();
 
-            String display = formatDisplay(data, zone, city);
-            if (display != null && listener != null) {
-                MAIN_HANDLER.post(() -> listener.onPrayerTimesUpdated(display));
+            WidgetData widgetData = parseWidgetData(data, zone, city);
+            if (widgetData != null && listener != null) {
+                MAIN_HANDLER.post(() -> listener.onPrayerTimesUpdated(widgetData));
             }
         } catch (Exception e) {
             Log.e(TAG, "Failed to refresh prayer times: " + e.getMessage());
         }
     }
 
-    private static String getCachedDisplay(Context appCtx) {
+    private static WidgetData getCachedData(Context appCtx) {
         SharedPreferences prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         String cachedJson = prefs.getString(KEY_CACHE_JSON, null);
         String zone = prefs.getString(KEY_CACHE_ZONE, "SGR01");
@@ -128,13 +154,13 @@ public final class PrayerTimes {
         if (cachedJson == null) return null;
         try {
             JSONObject data = new JSONObject(cachedJson);
-            return formatDisplay(data, zone, city);
+            return parseWidgetData(data, zone, city);
         } catch (Exception e) {
             return null;
         }
     }
 
-    private static String formatDisplay(JSONObject data, String zone, String city) {
+    private static WidgetData parseWidgetData(JSONObject data, String zone, String city) {
         try {
             JSONArray prayers = data.optJSONArray("prayers");
             if (prayers == null || prayers.length() == 0) return null;
@@ -169,37 +195,65 @@ public final class PrayerTimes {
 
             String nextName;
             long nextSec;
+            int nextIndex;
 
             if (nowSec < fajr) {
                 nextName = "Subuh";
                 nextSec = fajr;
+                nextIndex = 0;
             } else if (nowSec < syuruk) {
                 nextName = "Syuruk";
                 nextSec = syuruk;
+                nextIndex = 1;
             } else if (nowSec < dhuhr) {
                 nextName = "Zohor";
                 nextSec = dhuhr;
+                nextIndex = 2;
             } else if (nowSec < asr) {
                 nextName = "Asar";
                 nextSec = asr;
+                nextIndex = 3;
             } else if (nowSec < maghrib) {
                 nextName = "Maghrib";
                 nextSec = maghrib;
+                nextIndex = 4;
             } else if (nowSec < isha) {
                 nextName = "Isyak";
                 nextSec = isha;
+                nextIndex = 5;
             } else {
                 nextName = "Subuh";
                 nextSec = (tomorrowEntry != null) ? tomorrowEntry.optLong("fajr") : (fajr + 86400L);
+                nextIndex = 0;
             }
 
-            SimpleDateFormat timeFmt = new SimpleDateFormat("hh:mm a", Locale.US);
+            SimpleDateFormat timeFmt = new SimpleDateFormat("h:mm a", Locale.US);
             timeFmt.setTimeZone(TimeZone.getTimeZone("GMT+8"));
-            String timeStr = timeFmt.format(new Date(nextSec * 1000L));
 
-            return String.format(Locale.US, "🕌 %s %s · %s (%s)", nextName, timeStr, zone, city);
+            String subuhStr = timeFmt.format(new Date(fajr * 1000L));
+            String syurukStr = timeFmt.format(new Date(syuruk * 1000L));
+            String zohorStr = timeFmt.format(new Date(dhuhr * 1000L));
+            String asarStr = timeFmt.format(new Date(asr * 1000L));
+            String maghribStr = timeFmt.format(new Date(maghrib * 1000L));
+            String isyakStr = timeFmt.format(new Date(isha * 1000L));
+
+            String nextTimeStr = timeFmt.format(new Date(nextSec * 1000L));
+            String nextSummary = "NEXT: " + nextName.toUpperCase(Locale.US) + " " + nextTimeStr;
+            String locationStr = city.toUpperCase(Locale.US) + " · " + zone.toUpperCase(Locale.US);
+
+            return new WidgetData(
+                    locationStr,
+                    nextSummary,
+                    nextIndex,
+                    subuhStr,
+                    syurukStr,
+                    zohorStr,
+                    asarStr,
+                    maghribStr,
+                    isyakStr
+            );
         } catch (Exception e) {
-            Log.w(TAG, "formatDisplay error: " + e.getMessage());
+            Log.w(TAG, "parseWidgetData error: " + e.getMessage());
             return null;
         }
     }
