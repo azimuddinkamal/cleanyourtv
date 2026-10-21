@@ -342,7 +342,8 @@
                             android:layout_marginTop="1dp"
                             android:textColor="#FF34D399"
                             android:textSize="11sp"
-                            android:fontFamily="@font/outfit_bold"
+                            android:fontFamily="@font/outfit_medium"
+                            android:textStyle="bold"
                             android:letterSpacing="0.04" />
                     </LinearLayout>
 
