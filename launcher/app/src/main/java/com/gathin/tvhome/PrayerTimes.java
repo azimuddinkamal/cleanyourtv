@@ -214,13 +214,15 @@ public final class PrayerTimes {
 
             SimpleDateFormat timeFmt = new SimpleDateFormat("h:mm a", Locale.US);
             timeFmt.setTimeZone(TimeZone.getTimeZone("GMT+8"));
+            SimpleDateFormat slotTimeFmt = new SimpleDateFormat("h:mm", Locale.US);
+            slotTimeFmt.setTimeZone(TimeZone.getTimeZone("GMT+8"));
 
-            String subuhStr = "Subuh " + timeFmt.format(new Date(fajr * 1000L));
-            String syurukStr = "Syuruk " + timeFmt.format(new Date(syuruk * 1000L));
-            String zohorStr = "Zohor " + timeFmt.format(new Date(dhuhr * 1000L));
-            String asarStr = "Asar " + timeFmt.format(new Date(asr * 1000L));
-            String maghribStr = "Maghrib " + timeFmt.format(new Date(maghrib * 1000L));
-            String isyakStr = "Isyak " + timeFmt.format(new Date(isha * 1000L));
+            String subuhStr = "Subuh " + slotTimeFmt.format(new Date(fajr * 1000L));
+            String syurukStr = "Syuruk " + slotTimeFmt.format(new Date(syuruk * 1000L));
+            String zohorStr = "Zohor " + slotTimeFmt.format(new Date(dhuhr * 1000L));
+            String asarStr = "Asar " + slotTimeFmt.format(new Date(asr * 1000L));
+            String maghribStr = "Maghrib " + slotTimeFmt.format(new Date(maghrib * 1000L));
+            String isyakStr = "Isyak " + slotTimeFmt.format(new Date(isha * 1000L));
 
             String nextTimeStr = timeFmt.format(new Date(nextSec * 1000L));
             String nextSummary = "● NEXT: " + nextName.toUpperCase(Locale.US) + " " + nextTimeStr;
