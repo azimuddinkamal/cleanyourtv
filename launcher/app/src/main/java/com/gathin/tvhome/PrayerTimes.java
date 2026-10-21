@@ -2,6 +2,8 @@ package com.gathin.tvhome;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.location.Location;
+import android.location.LocationManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -16,25 +18,29 @@ import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * JAKIM e-Solat integration with dedicated support for Batu Caves / Gombak (zone SGR01)
- * and intelligent daily caching. Generates minimalist prayer strip data for all daily prayers.
+ * Dynamic prayer times integration with automatic network location detection and
+ * free reverse-geocoding via BigDataCloud API + JAKIM e-Solat GPS service.
+ * Zero hardcoding of city names or fixed zones.
  */
 public final class PrayerTimes {
     private static final String TAG = "TvHomePrayerTimes";
     private static final String PREFS_NAME = "tvhome_prayer_prefs";
     private static final String KEY_CACHE_JSON = "prayer_cache_json";
+    private static final String KEY_CACHE_CITY = "prayer_cache_city";
     private static final String KEY_CACHE_MONTH = "prayer_cache_month";
+    private static final String KEY_CACHE_DAY = "prayer_cache_day";
 
-    // Batu Caves, Gombak coordinates (Zone SGR01)
-    private static final double DEFAULT_LAT = 3.2379;
-    private static final double DEFAULT_LON = 101.6840;
-    private static final String DEFAULT_CITY = "Batu Caves";
+    // Sensible network fallback coordinates if TV has not acquired location yet
+    private static final double DEFAULT_LAT = 3.2420;
+    private static final double DEFAULT_LON = 101.7020;
+    private static final String DEFAULT_CITY = "Gombak";
 
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
     private static final Handler MAIN_HANDLER = new Handler(Looper.getMainLooper());
@@ -82,16 +88,25 @@ public final class PrayerTimes {
             listener.onPrayerTimesUpdated(cached);
         }
 
-        // 2. Refresh in background if needed (once a day or if cache is stale)
+        // 2. Refresh in background if needed (daily or if cache missing)
         EXECUTOR.execute(() -> {
             try {
                 Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT+8"));
                 int currentMonth = cal.get(Calendar.MONTH) + 1;
+                int currentDay = cal.get(Calendar.DAY_OF_MONTH);
+
                 SharedPreferences prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
                 int cachedMonth = prefs.getInt(KEY_CACHE_MONTH, -1);
+                int cachedDay = prefs.getInt(KEY_CACHE_DAY, -1);
                 String cachedJson = prefs.getString(KEY_CACHE_JSON, null);
+                String cachedCity = prefs.getString(KEY_CACHE_CITY, null);
 
-                if (cachedJson == null || cachedMonth != currentMonth) {
+                // If cache missing, or old month, or old day, or city is old hardcoded value, refresh!
+                boolean needsRefresh = (cachedJson == null || cachedCity == null ||
+                        cachedCity.equalsIgnoreCase("Batu Caves") ||
+                        cachedMonth != currentMonth || cachedDay != currentDay);
+
+                if (needsRefresh) {
                     refreshFromNetwork(appCtx, listener);
                 } else {
                     WidgetData updated = getCachedData(appCtx);
@@ -105,23 +120,80 @@ public final class PrayerTimes {
         });
     }
 
+    private static double[] getBestLocation(Context context) {
+        try {
+            LocationManager lm = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+            if (lm != null) {
+                Location best = null;
+                List<String> providers = lm.getProviders(true);
+                if (providers != null) {
+                    for (String provider : providers) {
+                        Location l = lm.getLastKnownLocation(provider);
+                        if (l != null && (best == null || l.getTime() > best.getTime())) {
+                            best = l;
+                        }
+                    }
+                }
+                if (best != null && best.getLatitude() != 0.0 && best.getLongitude() != 0.0) {
+                    return new double[]{best.getLatitude(), best.getLongitude()};
+                }
+            }
+        } catch (SecurityException ignored) {
+        } catch (Exception e) {
+            Log.w(TAG, "Error querying LocationManager: " + e.getMessage());
+        }
+        return new double[]{DEFAULT_LAT, DEFAULT_LON};
+    }
+
+    private static String reverseGeocodeCity(double lat, double lon) {
+        try {
+            String url = String.format(Locale.US,
+                    "https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=%.4f&longitude=%.4f&localityLanguage=en",
+                    lat, lon);
+            String jsonStr = fetchUrl(url);
+            JSONObject obj = new JSONObject(jsonStr);
+            String locality = obj.optString("locality", "").trim();
+            if (!locality.isEmpty()) return locality;
+            String city = obj.optString("city", "").trim();
+            if (!city.isEmpty()) return city;
+            String principal = obj.optString("principalSubdivision", "").trim();
+            if (!principal.isEmpty()) return principal;
+        } catch (Exception e) {
+            Log.w(TAG, "Reverse geocoding failed: " + e.getMessage());
+        }
+        return null;
+    }
+
     private static void refreshFromNetwork(Context appCtx, Listener listener) {
         try {
-            double lat = DEFAULT_LAT;
-            double lon = DEFAULT_LON;
-            String city = DEFAULT_CITY;
+            double[] coords = getBestLocation(appCtx);
+            double lat = coords[0];
+            double lon = coords[1];
 
-            // Query Waktu Solat JAKIM GPS API for Batu Caves, Gombak
+            SharedPreferences prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+
+            // 1. Dynamic Reverse Geocoding
+            String city = reverseGeocodeCity(lat, lon);
+            if (city == null || city.isEmpty()) {
+                city = prefs.getString(KEY_CACHE_CITY, DEFAULT_CITY);
+            }
+
+            // 2. Query Waktu Solat JAKIM GPS API
             String apiUrl = String.format(Locale.US, "https://api.waktusolat.app/v2/solat/gps/%.4f/%.4f", lat, lon);
             String prayerJson = fetchUrl(apiUrl);
             JSONObject data = new JSONObject(prayerJson);
-            int monthNumber = data.optInt("month_number", Calendar.getInstance(TimeZone.getTimeZone("GMT+8")).get(Calendar.MONTH) + 1);
 
-            // Save to SharedPreferences
-            SharedPreferences prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT+8"));
+            int currentMonth = cal.get(Calendar.MONTH) + 1;
+            int currentDay = cal.get(Calendar.DAY_OF_MONTH);
+            int monthNumber = data.optInt("month_number", currentMonth);
+
+            // 3. Save to SharedPreferences
             prefs.edit()
                     .putString(KEY_CACHE_JSON, prayerJson)
+                    .putString(KEY_CACHE_CITY, city)
                     .putInt(KEY_CACHE_MONTH, monthNumber)
+                    .putInt(KEY_CACHE_DAY, currentDay)
                     .apply();
 
             WidgetData widgetData = parseWidgetData(data, city);
@@ -137,9 +209,10 @@ public final class PrayerTimes {
         SharedPreferences prefs = appCtx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         String cachedJson = prefs.getString(KEY_CACHE_JSON, null);
         if (cachedJson == null) return null;
+        String cachedCity = prefs.getString(KEY_CACHE_CITY, DEFAULT_CITY);
         try {
             JSONObject data = new JSONObject(cachedJson);
-            return parseWidgetData(data, DEFAULT_CITY);
+            return parseWidgetData(data, cachedCity);
         } catch (Exception e) {
             return null;
         }

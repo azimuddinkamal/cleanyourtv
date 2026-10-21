@@ -6,9 +6,11 @@ import subprocess
 TV_HOST = "192.168.1.3"
 os.environ["TV_HOST"] = TV_HOST
 
+PYTHON_BIN = "tools/venv/Scripts/python.exe" if os.path.exists("tools/venv/Scripts/python.exe") else sys.executable
+
 def run_tv(cmd):
     print(f">> TV: {cmd}")
-    res = subprocess.run([sys.executable, "tools/tv.py", cmd], capture_output=True, text=True)
+    res = subprocess.run([PYTHON_BIN, "tools/tv.py", cmd], capture_output=True, text=True)
     if res.stdout:
         print(res.stdout.strip())
     if res.stderr:
@@ -17,13 +19,13 @@ def run_tv(cmd):
 
 def push_apk(local_apk):
     print(f"Pushing {local_apk} via b64push...")
-    res = subprocess.run([sys.executable, "tools/b64push.py", local_apk, "/data/local/tmp/tvhome.apk"], capture_output=True, text=True)
+    res = subprocess.run([PYTHON_BIN, "tools/b64push.py", local_apk, "/data/local/tmp/tvhome.apk"], capture_output=True, text=True)
     print(res.stdout.strip())
     return res.returncode == 0
 
 def take_screenshot(filename):
     print(f"Taking screenshot -> {filename}...")
-    res = subprocess.run([sys.executable, "tools/tv.py", "--screenshot", filename], capture_output=True, text=True)
+    res = subprocess.run([PYTHON_BIN, "tools/tv.py", "--screenshot", filename], capture_output=True, text=True)
     print(res.stdout.strip())
 
 def main():
@@ -42,6 +44,7 @@ def main():
 
     print("--- 3. GRANTING PERMISSIONS & SPEED COMPILATION ---")
     run_tv("pm grant com.gathin.tvhome android.permission.ACCESS_FINE_LOCATION")
+    run_tv("pm grant com.gathin.tvhome android.permission.ACCESS_COARSE_LOCATION")
     run_tv("cmd package compile -m speed -f com.gathin.tvhome")
 
     print("--- 4. APPLYING AZIM-CLEAN THEME ---")
