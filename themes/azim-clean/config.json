@@ -1,0 +1,33 @@
+{
+  "dock_apps": [
+    "com.google.android.youtube.tv",
+    "com.netflix.ninja",
+    "ott.durioo1",
+    "in.startv.hotstar.dplus.tv",
+    "com.apple.atve.androidtv.appletv"
+  ],
+  "hidden_apps": [
+    "com.tcl.tv",
+    "com.tcl.suspension"
+  ],
+  "live_tv_package": "com.tcl.tv",
+  "columns": 5,
+  "rows_below_dock": 0,
+  "dock_title": true,
+  "cinematic_home": true,
+  "ambient_glow": true,
+  "advanced_effects": true,
+  "icon_only_buttons": true,
+  "app_library": true,
+  "library_button": true,
+  "show_stats": false,
+  "background_color": "#0B0F19",
+  "wallpaper": true,
+  "wallpaper_dim": 25,
+  "reduced_motion": false,
+  "app_keys": [
+    "4062:com.netflix.ninja",
+    "4099:com.amazon.amazonvideo.livingroom",
+    "4065:com.google.android.youtube.tv"
+  ]
+}
